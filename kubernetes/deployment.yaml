@@ -1,0 +1,26 @@
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: poc-vulnerable-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vulnerable-app
+  template:
+    metadata:
+      labels:
+        app: vulnerable-app
+    spec:
+      containers:
+      - name: my-vulnerable-container
+        image: nginx:latest  # ITEM VULNERAVEL: Uso de tag latest
+        ports:
+        - containerPort: 8080
+        # Configuracao de seguranca maliciosa/vulneravel
+        securityContext:
+          # ITEM VULNERAVEL: Permitir o contêiner rodar com privilegios de root
+          allowPrivilegeEscalation: true 
+          # ITEM VULNERAVEL: Rodar como usuario root (UID 0)
+          runAsUser: 0
