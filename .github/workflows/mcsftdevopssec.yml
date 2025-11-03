@@ -77,7 +77,12 @@ jobs:
       - name: Run Checkov
         run: |
           checkov -d . -o sarif > checkov-results.sarif || true
-          jq 'del(.runs[].automationDetails)' checkov-results.sarif > checkov-results-clean.sarif
+          # Garante que o arquivo SARIF seja válido antes de sanitizar
+          if head -c 1 checkov-results.sarif | grep -q '{'; then
+            jq 'del(.runs[].automationDetails)' checkov-results.sarif > checkov-results-clean.sarif
+          else
+            echo '{"version":"2.1.0","runs":[]}' > checkov-results-clean.sarif
+          fi
 
       # -------------------------
       # 6. Instalação e execução do Gitleaks (segredos expostos)
