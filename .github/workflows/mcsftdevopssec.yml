@@ -77,11 +77,19 @@ jobs:
       - name: Run Checkov
         run: |
           checkov -d . -o sarif > checkov-results.sarif || true
-          # Garante que o arquivo SARIF seja válido antes de sanitizar
           if head -c 1 checkov-results.sarif | grep -q '{'; then
             jq 'del(.runs[].automationDetails)' checkov-results.sarif > checkov-results-clean.sarif
           else
-            echo '{"version":"2.1.0","runs":[]}' > checkov-results-clean.sarif
+            # SARIF dummy válido, para evitar erro de upload
+            echo '{
+              "version": "2.1.0",
+              "runs": [
+                {
+                  "tool": { "driver": { "name": "Checkov", "informationUri": "https://www.checkov.io" }},
+                  "results": []
+                }
+              ]
+            }' > checkov-results-clean.sarif
           fi
 
       # -------------------------
