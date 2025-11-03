@@ -47,15 +47,14 @@ jobs:
           policy: GitHub
           categories: code,artifacts,IaC,containers
           tools: bandit,binskim,checkov,eslint,templateanalyzer,trivy
-          # MSDO cobre código, IaC, containers e artefatos.
 
       # -------------------------
-      # 4. Instalação e execução do Trivy (extra coverage)
+      # 4. Instalação e execução do Trivy
       # -------------------------
       - name: Install Trivy
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y wget
+          sudo apt-get install -y wget jq
           wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
           echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
           sudo apt-get update -y
@@ -65,15 +64,20 @@ jobs:
         run: |
           trivy fs --security-checks vuln,config,secret --format sarif -o trivy-results.sarif .
 
+      - name: Sanitize Trivy SARIF
+        run: |
+          jq 'del(.runs[].automationDetails)' trivy-results.sarif > trivy-results-clean.sarif
+
       # -------------------------
       # 5. Instalação e execução do Checkov (IaC scanning)
       # -------------------------
       - name: Install Checkov
-        run: pip install checkov
+        run: pip install checkov jq
 
       - name: Run Checkov
         run: |
           checkov -d . -o sarif > checkov-results.sarif || true
+          jq 'del(.runs[].automationDetails)' checkov-results.sarif > checkov-results-clean.sarif
 
       # -------------------------
       # 6. Instalação e execução do Gitleaks (segredos expostos)
@@ -93,7 +97,7 @@ jobs:
           gitleaks detect --source . --no-git --report-format sarif --report-path gitleaks-results.sarif || true
 
       # -------------------------
-      # 7. Upload dos resultados SARIF
+      # 7. Upload dos resultados SARIF (categorias exclusivas)
       # -------------------------
       - name: Upload MSDO results
         uses: github/codeql-action/upload-sarif@v3
@@ -104,13 +108,13 @@ jobs:
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: trivy-results.sarif
+          sarif_file: trivy-results-clean.sarif
           category: trivy-scan
 
       - name: Upload Checkov results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: checkov-results.sarif
+          sarif_file: checkov-results-clean.sarif
           category: checkov-scan
 
       - name: Upload Gitleaks results
@@ -128,6 +132,6 @@ jobs:
           name: security-scan-reports
           path: |
             ${{ steps.msdo.outputs.sarifFile }}
-            trivy-results.sarif
-            checkov-results.sarif
+            trivy-results-clean.sarif
+            checkov-results-clean.sarif
             gitleaks-results.sarif
