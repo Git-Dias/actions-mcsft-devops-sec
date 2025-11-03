@@ -99,21 +99,25 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ steps.msdo.outputs.sarifFile }}
+          category: msdo-scan
 
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
+          category: trivy-scan
 
       - name: Upload Checkov results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: checkov-results.sarif
+          category: checkov-scan
 
       - name: Upload Gitleaks results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: gitleaks-results.sarif
+          category: gitleaks-scan
 
       # -------------------------
       # 8. (Opcional) Salva artefatos de scan para consulta posterior
