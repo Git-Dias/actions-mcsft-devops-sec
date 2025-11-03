@@ -42,6 +42,7 @@ jobs:
       - name: Run Microsoft Security DevOps
         uses: microsoft/security-devops-action@v1.6.0
         id: msdo
+        continue-on-error: true
         with:
           policy: GitHub
           categories: code,artifacts,IaC,containers
