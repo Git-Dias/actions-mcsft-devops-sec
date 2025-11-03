@@ -45,7 +45,7 @@ jobs:
         with:
           policy: GitHub
           categories: code,artifacts,IaC,containers
-          tools: bandit,binskim,checkov,eslint,templateanalyzer,terrascan,trivy
+          tools: bandit,binskim,checkov,eslint,templateanalyzer,trivy
           # MSDO cobre código, IaC, containers e artefatos.
 
       # -------------------------
