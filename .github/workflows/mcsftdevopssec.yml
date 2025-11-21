@@ -5,12 +5,10 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  schedule:
-    - cron: "30 3 * * 3"  # roda semanalmente às 03:30 UTC
 
 jobs:
   msdo-full-scan:
-    name: MSDO + Trivy + Checkov + Gitleaks
+    name: Microsoft Security DevOps
     runs-on: ubuntu-latest
 
     permissions:
@@ -20,131 +18,29 @@ jobs:
       security-events: write  # necessário para publicar SARIF na aba Security
 
     steps:
-      # -------------------------
-      # 1. Checkout do repositório
-      # -------------------------
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # Checkout your code repository to scan
+    - uses: actions/checkout@v3
 
-      # -------------------------
-      # 2. Setup .NET (para ferramentas do MSDO)
-      # -------------------------
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: |
-            6.0.x
-            8.0.x
+      # Run analyzers
+    - name: Run Microsoft Security DevOps
+      uses: microsoft/security-devops-action@latest
+      id: msdo
+    # with:
+      # config: string. Optional. A file path to an MSDO configuration file ('*.gdnconfig').
+      # policy: 'GitHub' | 'microsoft' | 'none'. Optional. The name of a well-known Microsoft policy. If no configuration file or list of tools is provided, the policy may instruct MSDO which tools to run. Default: GitHub.
+      # categories: string. Optional. A comma-separated list of analyzer categories to run. Values: 'code', 'artifacts', 'IaC', 'containers'. Example: 'IaC, containers'. Defaults to all.
+      # languages: string. Optional. A comma-separated list of languages to analyze. Example: 'javascript,typescript'. Defaults to all.
+      # tools: string. Optional. A comma-separated list of analyzer tools to run. Values: 'bandit', 'binskim', 'checkov', 'eslint', 'templateanalyzer', 'terrascan', 'trivy'.
 
-      # -------------------------
-      # 3. Microsoft Security DevOps
-      # -------------------------
-      - name: Run Microsoft Security DevOps
-        uses: microsoft/security-devops-action@v1.6.0
-        id: msdo
-        continue-on-error: true
-        with:
-          policy: GitHub
-          categories: code,artifacts,IaC,containers
-          tools: bandit,binskim,checkov,eslint,templateanalyzer,trivy
+      # Upload alerts to the Security tab - required for MSDO results to appear in the codeQL security alerts tab on GitHub (Requires GHAS)
+    # - name: Upload alerts to Security tab
+    #  uses: github/codeql-action/upload-sarif@v3
+    #  with:
+    #    sarif_file: ${{ steps.msdo.outputs.sarifFile }}
 
-      # -------------------------
-      # 4. Instalação e execução do Trivy
-      # -------------------------
-      - name: Install Trivy
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget jq
-          wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update -y
-          sudo apt-get install -y trivy
-
-      - name: Run Trivy filesystem scan
-        run: |
-          trivy fs --security-checks vuln,config,secret --format sarif -o trivy-results.sarif .
-
-      - name: Sanitize Trivy SARIF
-        run: |
-          jq 'del(.runs[].automationDetails)' trivy-results.sarif > trivy-results-clean.sarif
-
-      # -------------------------
-      # 5. Instalação e execução do Checkov (IaC scanning)
-      # -------------------------
-      - name: Install Checkov
-        run: pip install checkov jq
-
-      - name: Run Checkov
-        run: |
-          checkov -d . -o sarif > checkov-results.sarif || true
-          if head -c 1 checkov-results.sarif | grep -q '{'; then
-            jq 'del(.runs[].automationDetails)' checkov-results.sarif > checkov-results-clean.sarif
-          else
-            # SARIF dummy válido, para evitar erro de upload
-            echo '{
-              "version": "2.1.0",
-              "runs": [
-                {
-                  "tool": { "driver": { "name": "Checkov", "informationUri": "https://www.checkov.io" }},
-                  "results": []
-                }
-              ]
-            }' > checkov-results-clean.sarif
-          fi
-
-      # -------------------------
-      # 6. Instalação e execução do Gitleaks (segredos expostos)
-      # -------------------------
-      - name: Install Gitleaks
-        run: |
-          set -e
-          GITLEAKS_TAG=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -Po '"tag_name":\s*"\K(.*)(?=")')
-          curl -sL "https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_${GITLEAKS_TAG#v}_linux_x64.tar.gz" -o gitleaks.tar.gz
-          tar -xzf gitleaks.tar.gz
-          sudo mv gitleaks /usr/local/bin/gitleaks
-          rm -f gitleaks.tar.gz
-          gitleaks version
-
-      - name: Run Gitleaks scan
-        run: |
-          gitleaks detect --source . --no-git --report-format sarif --report-path gitleaks-results.sarif || true
-
-      # -------------------------
-      # 7. Upload dos resultados SARIF (categorias exclusivas)
-      # -------------------------
-      - name: Upload MSDO results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: ${{ steps.msdo.outputs.sarifFile }}
-          category: msdo-scan
-
-      - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results-clean.sarif
-          category: trivy-scan
-
-      - name: Upload Checkov results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: checkov-results-clean.sarif
-          category: checkov-scan
-
-      - name: Upload Gitleaks results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: gitleaks-results.sarif
-          category: gitleaks-scan
-
-      # -------------------------
-      # 8. (Opcional) Salva artefatos de scan para consulta posterior
-      # -------------------------
-      - name: Upload SARIF artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-scan-reports
-          path: |
-            ${{ steps.msdo.outputs.sarifFile }}
-            trivy-results-clean.sarif
-            checkov-results-clean.sarif
-            gitleaks-results.sarif
+      # Upload alerts file as a workflow artifact - required for MSDO results to appear in the codeQL security alerts tab on GitHub (Requires GHAS)
+    # - name: Upload alerts file as a workflow artifact
+    #  uses: actions/upload-artifact@v3
+    #  with:  
+    #    name: alerts
+    #    path: ${{ steps.msdo.outputs.sarifFile }}
