@@ -309,5 +309,4 @@ resource "azurerm_container_registry" "insecure_acr" {
 
   # VULNERAVEL - Sem network rules configuradas
 }
-
 data "azurerm_client_config" "current" {}
