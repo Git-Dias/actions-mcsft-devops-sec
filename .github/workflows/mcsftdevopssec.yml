@@ -3,9 +3,7 @@ name: "Microsoft Defender for DevOps - Full Security Scan"
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
+    
 jobs:
   msdo-full-scan:
     name: Microsoft Security DevOps
