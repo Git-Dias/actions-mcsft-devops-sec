@@ -68,7 +68,7 @@ spec:
         - name: AWS_ACCESS_KEY_ID
           value: "AKIAIOSFODNN7EXAMPLE"
         - name: AWS_SECRET_ACCESS_KEY
-          value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          value: "wJalrXUtnFEMI/K7MDENG/bPxRfiEXPOSURECYEXAMPLEKEY"
         - name: ADMIN_TOKEN
           value: "admin-token-123456789"
         
